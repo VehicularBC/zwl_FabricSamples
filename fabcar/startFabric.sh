@@ -14,7 +14,7 @@ CC_SRC_LANGUAGE=${1:-"go"}
 CC_SRC_LANGUAGE=`echo "$CC_SRC_LANGUAGE" | tr [:upper:] [:lower:]`
 
 if [ "$CC_SRC_LANGUAGE" = "go" -o "$CC_SRC_LANGUAGE" = "golang" ] ; then
-	CC_SRC_PATH="../chaincode/vote/"
+	CC_SRC_PATH="../chaincode/voteCC/"
 elif [ "$CC_SRC_LANGUAGE" = "javascript" ]; then
 	CC_SRC_PATH="../chaincode/fabcar/javascript/"
 elif [ "$CC_SRC_LANGUAGE" = "java" ]; then
