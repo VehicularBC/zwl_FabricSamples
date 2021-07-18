@@ -12,7 +12,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-
 	"github.com/hyperledger/fabric-sdk-go/pkg/core/config"
 	"github.com/hyperledger/fabric-sdk-go/pkg/gateway"
 )
@@ -25,7 +24,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if !wallet.Exists("appUser") {
+	if !wallet.Exists("appUser2") {
 		err = populateWallet(wallet)
 		if err != nil {
 			fmt.Printf("Failed to populate wallet contents: %s\n", err)
@@ -45,7 +44,7 @@ func main() {
 
 	gw, err := gateway.Connect(
 		gateway.WithConfig(config.FromFile(filepath.Clean(ccpPath))),
-		gateway.WithIdentity(wallet, "appUser"),
+		gateway.WithIdentity(wallet, "appUser2"),
 	)
 	if err != nil {
 		fmt.Printf("Failed to connect to gateway: %s\n", err)
@@ -64,21 +63,21 @@ func main() {
 		
 		
 			
-	result, err := contract.SubmitTransaction("Vote", "tempCar2")
+	/*result, err := contract.SubmitTransaction("Vote", "tempCar2")
+	if err != nil {
+		fmt.Printf("Failed to submit transaction: %s\n", err)
+		os.Exit(1)
+	}
+	fmt.Println(string(result))
+	*/
+	result, err := contract.SubmitTransaction("GetSDKuserId")
 	if err != nil {
 		fmt.Printf("Failed to submit transaction: %s\n", err)
 		os.Exit(1)
 	}
 	fmt.Println(string(result))
 	
-	result, err = contract.SubmitTransaction("GetSDKuserId")
-	if err != nil {
-		fmt.Printf("Failed to submit transaction: %s\n", err)
-		os.Exit(1)
-	}
-	fmt.Println(string(result))
-	
-	result, err = contract.SubmitTransaction("GetTempCar", "tempCar2")
+	result, err = contract.SubmitTransaction("Vote","Tempcar1")
 	if err != nil {
 		fmt.Printf("Failed to submit transaction: %s\n", err)
 		os.Exit(1)
@@ -96,7 +95,7 @@ func populateWallet(wallet *gateway.Wallet) error {
 		"peerOrganizations",
 		"org1.example.com",
 		"users",
-		"User1@org1.example.com",
+		"User2@org1.example.com",
 		"msp",
 	)
 
@@ -124,7 +123,7 @@ func populateWallet(wallet *gateway.Wallet) error {
 
 	identity := gateway.NewX509Identity("Org1MSP", string(cert), string(key))
 
-	err = wallet.Put("appUser", identity)
+	err = wallet.Put("appUser2", identity)
 	if err != nil {
 		return err
 	}

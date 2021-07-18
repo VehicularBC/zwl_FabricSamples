@@ -10,6 +10,6 @@ fi
 
 echo "DISCOVERY_AS_LOCALHOST="$DISCOVERY_AS_LOCALHOST
 
-echo "run fabcar..."
+echo "run fabcarOrg2_user1..."
 
-go run fabcar.go
+go run fabcarOrg2_user1.go

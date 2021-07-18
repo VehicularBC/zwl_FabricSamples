@@ -58,6 +58,21 @@ func (s *SmartContract) InitLedger(ctx contractapi.TransactionContextInterface) 
 	return nil
 }
 
+func (s *SmartContract) calculateNum() []int{
+	num := make([]int,0)
+	go func(){
+		for i :=0 ;i<10;i++{
+			num = append(num,i)
+		}
+	}()
+	go func(){
+		for i :=10 ;i<200;i++{
+			num = append(num,i)
+		}
+	}()
+	return num
+}
+
 // CreateCar adds a new car to the world state with given details
 func (s *SmartContract) CreateCar(ctx contractapi.TransactionContextInterface, carNumber string, make string, model string, colour string, owner string) error {
 	car := Car{

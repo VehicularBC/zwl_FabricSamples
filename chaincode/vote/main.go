@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
+
 )
 
-const car = "CarType~ID"
+const car = "car~type"
 const temp = "TempVehicle"
 const formal = "FormalVehicle"
 const voteThreshold = 2
@@ -18,38 +19,25 @@ type SmartContract struct {
 //发起人身份信息
 type TempVehicle struct{
 	Id 					string 		`json:"id"`						//临时车辆名称
-	Threshold			int			`json:"threshold"`				//临时车辆成功注册所需要的背书者的数量
+	Threshold			int		`json:"threshold"`					//临时车辆成功注册所需要的背书者的数量
 	EndorserList		[]string	`json:"endorser_list"`			//为白板车申请身份背书的车辆Id列表
 }
-
 type FormalVehicle struct {
 	Id 					string		`json:"id"`						//正式车辆名称
 	Uid					string		`json:"uid"`					//车辆名称所对应的SDK的wallet中的ID
-	VoteWeight			int			`json:"vote_weight"`			//车辆投票权重
+	VoteWeight			int		`json:"vote_weight"`				//车辆投票权重
 	EndorserList		[]string	`json:"endorser_list"`			//加入网络时的背书车辆的列表
 }
-type TempVoteCar struct {}
-//计算临时车投票通过的门限
-func calculateVoteThreshold() int{
-	var threshold int
-	//遍历正式车列表，如使用id切片分组作为车辆列表，可采用车辆列表的1/3的车辆数额作为投票门限
 
-	//如果投票门限小于所设定的默认值，则返回默认值
-	if threshold < voteThreshold{
-		return voteThreshold
-	}
-	return threshold
-}
-//*****
-func CreateCarVoteCompositeKey(ctx contractapi.TransactionContextInterface, attribute ...string) (string, error){
-	attr := attribute
-	//attr := []string{attribute,id}
+func createCarCompositeKey(ctx contractapi.TransactionContextInterface,attribute ,id string) (string, error){
+	attr := []string{attribute,id}
 	compositeKey, err := ctx.GetStub().CreateCompositeKey(car, attr)
 	if err != nil{
 		return "",fmt.Errorf("the composite key failed to be created")
 	}
 	return compositeKey, nil
 }
+
 
 //获得SDK的user身份ID，每个user的msp有一个唯一身份ID
 func (s *SmartContract) GetSDKuserId(ctx contractapi.TransactionContextInterface) string {
@@ -60,25 +48,17 @@ func (s *SmartContract) GetSDKuserId(ctx contractapi.TransactionContextInterface
 	return uid
 }
 
-func (s *SmartContract) GetSDKcreatorId(ctx contractapi.TransactionContextInterface) string{
-	uid, err := ctx.GetStub().GetCreator()
-	if err != nil {
-		return ""
-	}
-	return string(uid)
-}
-
 //向账本中添加临时车辆表项
 func (s *SmartContract) CreateTempVehicle(ctx contractapi.TransactionContextInterface, id , userId string ) (bool,error){
 	//创建复合键名
-	compositeKey, err := CreateCarVoteCompositeKey(ctx,temp,id)
+	compositeKey, err := createCarCompositeKey(ctx,temp,id)
 	if err != nil {
 		return false, err
 	}
 	//创建临时车辆表项
 	newTempCar := &TempVehicle{
 		Id:           compositeKey,
-		Threshold:    calculateVoteThreshold()-1,
+		Threshold:    1,
 		EndorserList: []string{userId},
 	}
 	newTempCarJson,err := json.Marshal(newTempCar)
@@ -91,95 +71,37 @@ func (s *SmartContract) CreateTempVehicle(ctx contractapi.TransactionContextInte
 	}
 	return true, nil
 }
-//添加临时投票车辆表项 ****
-func (s *SmartContract) CreateTempVoteCar(ctx contractapi.TransactionContextInterface, objectKey , myKey string ) (bool,error){
-	//attr := []string{objectKey, myKey}
-	compositeKey, err := CreateCarVoteCompositeKey(ctx, temp , objectKey, myKey)
-	if err != nil {
-		return  false, err
-	}
-	//创建临时车辆表项
-	newTempCar := &TempVoteCar{}
-	newTempCarJson,err := json.Marshal(newTempCar)
-	if err != nil{
-		return false, fmt.Errorf("JSON format conversion failed")
-	}
-	err = ctx.GetStub().PutState(compositeKey, newTempCarJson)
-	if err != nil{
-		return false, err
-	}
-	return true, nil
-}
-
 //创建正式车辆表项
 func (s *SmartContract) TransToFormalVehicle(ctx contractapi.TransactionContextInterface, id string) error{
 
 	//检测该车辆是否已经存在于正式车辆表项中
-	if ok, _ := s.IsCompositeExisted(ctx, car, formal, id ); ok == true {
+	if ok, _ := s.IsCompositeExisted(ctx, car,formal, id); ok == true {
 		return fmt.Errorf("The car is not a legal formal vehicle")
 	}
 	//创建复合键名,搜索临时表项
-	tempCompositeKey, err := CreateCarVoteCompositeKey(ctx, temp , id)
+	tempCompositeKey, err := createCarCompositeKey(ctx, temp ,id)
 	if err != nil {
 		return err
 	}
 	tempCar, _ := s.GetTempCar(ctx, tempCompositeKey)
 	//创建正式车辆表项
-	var a = tempCar.Id
 	newFormalCar := &FormalVehicle{
-		Id:           a,
+		Id:           tempCar.Id,
 		Uid:          "",
 		VoteWeight:   2,
 		EndorserList: tempCar.EndorserList,
 	}
 	//转化为Json格式添加账本
-	newFormalCarJson, err := json.Marshal(newFormalCar)
+	newFormalCarJson,err := json.Marshal(newFormalCar)
 	if err != nil{
 		return fmt.Errorf("JSON format conversion failed")
 	}
-	formalCompositeKey, err := CreateCarVoteCompositeKey(ctx, formal ,id)
+	formalCompositeKey, err := createCarCompositeKey(ctx, formal ,id)
 	err = ctx.GetStub().PutState(formalCompositeKey, newFormalCarJson)
 	if err != nil{
 		return err
 	}
 	return  nil
-}
-//******
-
-func (s *SmartContract) Vote(ctx contractapi.TransactionContextInterface, id string) (bool, error) {
-	userId := s.GetSDKuserId(ctx)
-	if tempCar, _ := s.GetTempVoteCar(ctx, id, userId); tempCar == true {
-		return false, fmt.Errorf("该正式车已投票")
-	}
-	var flag int
-	attrs := []string{temp, id}
-
-	queryResult, _ := ctx.GetStub().GetStateByPartialCompositeKey(car, attrs)
-	defer queryResult.Close()
-	for queryResult.HasNext(){
-		queryResponse, err := queryResult.Next()
-		if err != nil {
-			return false, err
-		}
-		if queryResponse != nil{
-			flag++
-		}
-	}
-	if flag >= calculateVoteThreshold() {
-		return false, fmt.Errorf("该车辆投票过程已结束")
-	}
-	_, err := s.CreateTempVoteCar(ctx, id, userId)
-	flag += 1
-	if err != nil {
-		return false, fmt.Errorf("创建临时表项失败")
-	}
-	if flag == calculateVoteThreshold() {
-		//此处应加入删除所有表项的代码
-		return true, nil
-	}
-	//临时表项存在
-	//临时表项不存在
-	return false , nil
 }
 //检查账本中是否存在某一复合键
 func (s *SmartContract) IsCompositeExisted(ctx contractapi.TransactionContextInterface, objectType string, attributes string, id string) (bool, error) {
@@ -191,14 +113,53 @@ func (s *SmartContract) IsCompositeExisted(ctx contractapi.TransactionContextInt
 	tempJson, err := ctx.GetStub().GetState(compositeKey)
 	return tempJson != nil, err
 }
+
+func (s *SmartContract) GetSDKcreatorId(ctx contractapi.TransactionContextInterface) string{
+	uid, err := ctx.GetStub().GetCreator()
+	if err != nil {
+		return ""
+	}
+	return string(uid)
+}
+
 //为临时车辆投票
+func (s *SmartContract) Vote(ctx contractapi.TransactionContextInterface, id string) (bool, error) {
+	userId := s.GetSDKuserId(ctx)
+	//临时表项存在
+	if tempCar, _ := s.GetTempCar(ctx, id); tempCar != nil{
+		for _, endorser := range tempCar.EndorserList{
+			if endorser == userId {
+				return false, fmt.Errorf("该正式车已投票")
+			}
+		}
+		//投票阈值大于0
+		if tempCar.Threshold > 0 {
+			tempCar.EndorserList = append(tempCar.EndorserList, userId)
+			tempCar.Threshold = tempCar.Threshold - 1
+			carJson, _ := json.Marshal(tempCar)
+			compositeKey, _ := createCarCompositeKey(ctx, temp , id)
+			_ = ctx.GetStub().PutState(compositeKey, carJson)
+			if tempCar.Threshold == 0 {
+				return true , nil
+			}
+			return false, nil
+		}
+		return false, nil
+	}
+	//临时表项不存在
+	_, err := s.CreateTempVehicle(ctx, id, userId)
+	if err != nil{
+		return false,fmt.Errorf("创建临时表项失败")
+	}
+	return false , nil
+}
 func (s *SmartContract) InitFormalVehicle(ctx contractapi.TransactionContextInterface, id string) (*FormalVehicle, error){
 	userId := s.GetSDKuserId(ctx)
 	if ok, _ := s.IsCompositeExisted(ctx, car,formal, id); ok != false {
 		return &FormalVehicle{},fmt.Errorf("The car has been created")
 	}
 	//创建复合键名,搜索临时表项
-	tempCompositeKey, err := CreateCarVoteCompositeKey(ctx, formal ,id)
+	tempCompositeKey, err := createCarCompositeKey(ctx, formal ,id)
 	if err != nil {
 		return &FormalVehicle{}, err
 	}
@@ -218,7 +179,7 @@ func (s *SmartContract) InitFormalVehicle(ctx contractapi.TransactionContextInte
 
 // GetAsset returns the basic asset with id given from the world state
 func (s *SmartContract) GetTempCar(ctx contractapi.TransactionContextInterface, key string) (*TempVehicle, error) {
-	compositeKey, err := CreateCarVoteCompositeKey(ctx, temp , key)
+	compositeKey, err := createCarCompositeKey(ctx, temp , key )
 	if err != nil {
 		return  nil, err
 	}
@@ -235,22 +196,9 @@ func (s *SmartContract) GetTempCar(ctx contractapi.TransactionContextInterface, 
 	}
 	return ba, nil
 }
-//******
-func (s *SmartContract) GetTempVoteCar(ctx contractapi.TransactionContextInterface, objectKey , myKey string) (bool, error) {
-	//attr := []string{objectKey, myKey}
-	compositeKey, err := CreateCarVoteCompositeKey(ctx, temp , objectKey , myKey)
-	if err != nil {
-		return  false, err
-	}
-	existing, err:= ctx.GetStub().GetState(compositeKey)
-	if existing == nil {
-		return false, nil
-	}
-	return true, nil
-}
 
 func (s *SmartContract) GetFormalCar(ctx contractapi.TransactionContextInterface, key string) (*FormalVehicle, error) {
-	compositeKey, err := CreateCarVoteCompositeKey(ctx, formal , key)
+	compositeKey, err := createCarCompositeKey(ctx, formal , key)
 	if err != nil {
 		return nil,err
 	}
@@ -284,5 +232,4 @@ func main() {
 		fmt.Printf("Error starting fabcar chaincode: %s", err.Error())
 	}
 }
-
 
