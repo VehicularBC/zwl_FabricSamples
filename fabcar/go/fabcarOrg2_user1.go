@@ -77,12 +77,13 @@ func main() {
 	}
 	fmt.Println(string(result))
 	
-	result, err = contract.SubmitTransaction("Vote","Tempcar1")
+	result, err = contract.SubmitTransaction("VoteForTempCar","Tempcar1")
 	if err != nil {
 		fmt.Printf("Failed to submit transaction: %s\n", err)
 		os.Exit(1)
 	}
 	fmt.Println(string(result))
+	
 	
 }
 

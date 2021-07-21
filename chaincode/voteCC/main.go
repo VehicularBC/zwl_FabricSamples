@@ -40,6 +40,78 @@ func calculateVoteThreshold() int{
 	}
 	return threshold
 }
+
+func (s *SmartContract) VoteForTempCar(ctx contractapi.TransactionContextInterface, objectKey  string) (bool,error){
+	myKey := s.GetSDKuserId(ctx)
+	compositeKey, err := CreateCarVoteCompositeKey(ctx, temp , objectKey, myKey)
+	if err != nil {
+		return  false, err
+	}
+	if tempCar, _ := ctx.GetStub().GetState(compositeKey); tempCar != nil {
+		return false, fmt.Errorf("该正式车已投票")
+	}
+	//创建临时车辆表项
+	err = ctx.GetStub().PutState(compositeKey, []byte{0x00})
+	if err != nil{
+		return false, err
+	}
+	return true, nil
+}
+
+func (s *SmartContract) GetVoteResult(ctx contractapi.TransactionContextInterface, objectKey string) (bool, error) {
+	resultsIterator, err := ctx.GetStub().GetStateByPartialCompositeKey(car, []string{temp, objectKey})
+	if err != nil{
+		return false, err
+	}
+	defer resultsIterator.Close()
+	if !resultsIterator.HasNext() {
+		return false, fmt.Errorf("No variable by the name %s exists", objectKey)
+	}
+	var flag int
+	for resultsIterator.HasNext(){
+		queryResponse, err := resultsIterator.Next()
+		if err != nil {
+			return false, err
+		}
+		if queryResponse != nil{
+			flag++
+		}
+	}
+	if flag > calculateVoteThreshold() {
+		return false, fmt.Errorf("该车辆投票过程已结束")
+	}
+	if flag == calculateVoteThreshold() {
+		//此处应加入删除所有表项的代码
+		return true, nil
+	}
+	//临时表项存在
+	//临时表项不存在
+	return false , nil
+	/*var voteList []string
+	for resultsIterator.HasNext(){
+		queryResponse, err := resultsIterator.Next()
+		if err != nil {
+			return 0, err
+		}
+		_, keyParts, err := ctx.GetStub().SplitCompositeKey(queryResponse.Key)
+		if err != nil{
+			return 0, err
+		}
+		
+		_ = keyParts[3]
+		/*if voteList != nil {
+			for _, id := range voteList {
+				if id == voteId {
+					continue
+				} else {
+					voteList = append(voteList, voteId)
+				}
+			}
+		}else{
+			voteList = append(voteList, voteId)
+		}
+		voteList = append(voteList, "voteId")*/
+}
 //*****
 func CreateCarVoteCompositeKey(ctx contractapi.TransactionContextInterface, attribute ...string) (string, error){
 	attr := attribute
